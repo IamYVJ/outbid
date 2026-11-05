@@ -244,8 +244,7 @@
     $('#pl-count').textContent = `(${snap.players.length}/${MAX_PLAYERS})`;
     const ul = $('#lobby-players'); ul.replaceChildren();
     for (const p of snap.players) {
-      ul.append(h('li', {},
-        h('span', { class: 'dot', style: `background:${p.color}` }),
+      ul.append(h('li', { style: `--pc:${p.color}` },
         h('span', { class: 'grow' }, p.name, p.id === S.myId ? ' (you)' : ''),
         p.id === 'h' ? h('span', { class: 'tagpill' }, 'host') : null,
         p.bot ? h('span', { class: 'tagpill' }, 'bot') : null,
@@ -282,19 +281,17 @@
       const bid = showLast ? snap.last.bids[p.id] : undefined;
       const lockedNow = bidding && snap.locked.includes(p.id);
       const isWin = showLast && snap.last.winnerId === p.id;
-      const cardCls = 'card' + (showLast ? ' flip' : '') + (isWin ? ' winc' : '') + (!showLast && !lockedNow ? ' empty' : '');
-      const pips = Array.from({ length: cfg.Y }, (_, i) => h('i', { class: i < p.wins ? 'on' : '', style: `--c:${p.color}` }));
-      const chips = Math.min(12, Math.ceil(p.volume / Math.max(1, cfg.V) * 12));
+      const pips = Array.from({ length: cfg.Y }, (_, i) => h('i', { class: i < p.wins ? 'on' : '' }));
       let status = '';
       if (!p.connected) status = 'disconnected';
-      else if (bidding) status = lockedNow ? '✔ bid locked' : 'thinking…';
-      else if (isWin) status = '🏆 won the round';
-      seats.append(h('div', { class: 'seat' + (p.id === S.myId ? ' me' : '') + (isWin ? ' winner' : '') + (!p.connected ? ' out' : '') },
-        h('div', { class: 'nm' }, h('span', { class: 'dot', style: `background:${p.color}` }), p.name + (p.bot ? ' 🤖' : '') + (p.id === S.myId ? ' (you)' : '')),
+      else if (bidding) status = lockedNow ? 'bid locked' : 'thinking…';
+      else if (isWin) status = 'won the round';
+      const bidTxt = showLast ? fmt(bid) : lockedNow ? '✓' : '';
+      seats.append(h('div', { class: 'seat' + (p.id === S.myId ? ' me' : '') + (isWin ? ' winner' : '') + (!p.connected ? ' out' : ''), style: `--pc:${p.color}` },
+        h('div', { class: 'nm' }, p.name + (p.bot ? ' · bot' : '') + (p.id === S.myId ? ' (you)' : '')),
+        h('div', { class: 'vol' }, h('b', {}, fmt(p.volume)), ' vol'),
+        h('div', { class: 'bidval' + (isWin ? ' win' : '') }, bidTxt),
         h('div', { class: 'wins', title: `${p.wins}/${cfg.Y} wins` }, pips),
-        h('div', { class: 'stack', style: `--c:${p.color}` }, h('div', { class: 'col' }, Array.from({ length: chips }, () => h('div', { class: 'ch' })))),
-        h('div', { class: 'vol' }, h('b', {}, fmt(p.volume)), ' volume'),
-        h('div', { class: cardCls }, h('div', { class: 'in' }, h('div', { class: 'b' }), h('div', { class: 'f' }, h('small', {}, 'BID'), bid !== undefined ? fmt(bid) : ''))),
         h('div', { class: 'status' }, status)));
     }
 
@@ -360,7 +357,7 @@
 
   function renderOver(snap) {
     const w = snap.winnerId ? pById(snap, snap.winnerId) : null;
-    $('#over-title').textContent = w ? `🏆 ${w.name} wins OUTBID!` : 'Draw — nobody reached the target';
+    $('#over-title').textContent = w ? `${w.name} wins.` : 'Draw.';
     $('#over-sub').textContent = w ? `${w.name} reached ${snap.config.Y} round wins in round ${snap.history.length}.` : `${snap.config.X} rounds passed without a winner.`;
     const A = snap.analysis;
     const t = $('#over-table'); t.replaceChildren(
