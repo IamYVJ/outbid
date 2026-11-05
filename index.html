@@ -62,6 +62,7 @@
           <label class="field"><span>Maximum rounds (X)</span><input type="number" id="cfg-X" min="1" max="50" value="7"></label>
           <label class="field"><span>Target wins (Y)</span><input type="number" id="cfg-Y" min="1" max="50" value="4"></label>
         </div>
+        <label class="toggle"><input type="checkbox" id="cfg-tie"><span>Replay the round on a tied top bid <small>(off: nobody wins the round; bids are paid either way)</small></span></label>
         <label class="toggle"><input type="checkbox" id="cfg-hide"><span>Hide opponents' volume <small>(track it yourself from the revealed bids)</small></span></label>
         <div class="row">
           <button class="btn" id="btn-addbot">+ Add bot</button>
@@ -136,7 +137,7 @@
     <ol>
       <li><b>Choose</b> — everyone secretly picks a whole-number bid, 0 up to their remaining volume.</li>
       <li><b>Reveal</b> — all bids are shown at once.</li>
-      <li><b>Winner</b> — the highest bid above zero wins. If two or more players tie for the highest bid, nobody wins. Zero never wins.</li>
+      <li><b>Winner</b> — the highest bid above zero wins. If two or more players tie for the highest bid, nobody wins (or, if the host enabled it, the round is replayed under the same round number; bids are still paid). Zero never wins.</li>
       <li><b>Deduct</b> — every player loses exactly what they bid.</li>
       <li><b>Continue</b> — until someone has Y wins or X rounds have been played.</li>
     </ol>

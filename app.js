@@ -72,7 +72,7 @@
       round: g ? g.round : 0,
       locked: Object.keys(host.bids),
       last: host.last,
-      history: g ? g.history.map(({ round, bids, winnerId }) => ({ round, bids, winnerId })) : [],
+      history: g ? g.history.map(({ round, bids, winnerId, rerun }) => ({ round, bids, winnerId, rerun })) : [],
       over: g ? g.over : false, winnerId: g ? g.winnerId : null, draw: g ? g.draw : false,
       analysis: g && g.over ? E.analyse(g) : null,
       nextIn: host.phase === 'reveal' ? Math.max(0, host.nextAt - Date.now()) : 0
@@ -119,7 +119,7 @@
   function reveal() {
     host.game = E.resolveRound(host.game, host.bids);
     const hr = host.game.history[host.game.history.length - 1];
-    host.last = { round: hr.round, bids: hr.bids, winnerId: hr.winnerId };
+    host.last = { round: hr.round, bids: hr.bids, winnerId: hr.winnerId, rerun: hr.rerun };
     host.bids = {};
     if (host.game.over) { host.phase = 'over'; }
     else {
@@ -138,7 +138,7 @@
     host.game = null; host.last = null; host.bids = {}; host.phase = 'lobby'; host.token++;
     hostBroadcast();
   }
-  function readConfig() { return { V: +$('#cfg-V').value, X: +$('#cfg-X').value, Y: +$('#cfg-Y').value }; }
+  function readConfig() { return { V: +$('#cfg-V').value, X: +$('#cfg-X').value, Y: +$('#cfg-Y').value, tieRule: $('#cfg-tie').checked ? 'rerun' : 'none' }; }
 
   function hostAccept(conn) {
     conn.on('data', m => {
@@ -256,7 +256,8 @@
     $('#guest-wait').classList.toggle('hidden', isHost());
     const c = snap.config;
     for (const k of ['V', 'X', 'Y']) { const el = $('#cfg-' + k); if (document.activeElement !== el && isHost()) el.value = c[k]; }
-    $('#cfg-summary').textContent = `${snap.players.length} players · ${c.V} volume each · ${c.X} max rounds · first to ${c.Y} wins` + (snap.hideVolume ? ' · opponents\' volume hidden' : '');
+    $('#cfg-summary').textContent = `${snap.players.length} players · ${c.V} volume each · ${c.X} max rounds · first to ${c.Y} wins` + (c.tieRule === 'rerun' ? ' · ties replay the round' : '') + (snap.hideVolume ? ' · opponents\' volume hidden' : '');
+    $('#cfg-tie').checked = c.tieRule === 'rerun';
     $('#cfg-hide').checked = !!snap.hideVolume;
   }
 
@@ -270,7 +271,7 @@
     // round track
     const track = $('#track'); track.replaceChildren();
     for (let r = 1; r <= cfg.X; r++) {
-      const hr = snap.history.find(x => x.round === r);
+      const hr = [...snap.history].reverse().find(x => x.round === r && !x.rerun);
       const w = hr && hr.winnerId ? pById(snap, hr.winnerId) : null;
       const cur = !snap.over && ((bidding && r === snap.round) || (snap.phase === 'reveal' && r === snap.round));
       track.append(h('div', { class: 'tile' + (hr ? (w ? '' : ' tie') : ' future') + (cur ? ' now' : ''), title: hr ? (w ? `Won by ${w.name}` : 'No winner') : '' },
@@ -303,10 +304,11 @@
     clearInterval(ui.timer);
     if (bidding) {
       const waiting = snap.players.filter(p => p.connected && !snap.locked.includes(p.id)).length;
-      center.append(h('span', { class: 'banner' }, `Round ${snap.round} of ${cfg.X} — place your bids `, h('b', {}, `(${waiting} still choosing)`)));
+      const again = snap.last && snap.last.rerun && snap.last.round === snap.round;
+      center.append(h('span', { class: 'banner' }, `Round ${snap.round} of ${cfg.X}${again ? ' (replay after tie)' : ''} — place your bids `, h('b', {}, `(${waiting} still choosing)`)));
     } else if (snap.phase === 'reveal') {
       const w = snap.last.winnerId ? pById(snap, snap.last.winnerId) : null;
-      const txt = w ? [h('b', {}, w.name), ` wins round ${lastRoundNo} with ${snap.last.bids[w.id]}`] : [h('b', {}, 'No winner'), ` in round ${lastRoundNo} — ${Object.values(snap.last.bids).some(b => b > 0) ? 'top bid was tied' : 'nobody bid'}`];
+      const txt = w ? [h('b', {}, w.name), ` wins round ${lastRoundNo} with ${snap.last.bids[w.id]}`] : [h('b', {}, 'No winner'), ` in round ${lastRoundNo} — ${snap.last.rerun ? 'top bid tied, round will be replayed' : Object.values(snap.last.bids).some(b => b > 0) ? 'top bid was tied' : 'nobody bid'}`];
       const cd = h('b', {}, '');
       center.append(h('span', { class: 'banner' }, txt, ' · next round in ', cd, 's '), isHost() ? h('button', { class: 'btn', style: 'margin-left:10px;padding:6px 12px', onclick: hostNext }, 'Skip') : null);
       const tick = () => { cd.textContent = Math.max(0, Math.ceil((S.countdownEnd - Date.now()) / 1000)); };
@@ -355,7 +357,7 @@
     const t = $('#log'); t.replaceChildren();
     if (!snap.history.length) { t.append(h('tr', {}, h('td', {}, 'No rounds played yet.'))); return; }
     t.append(h('tr', {}, h('th', {}, 'Round'), snap.players.map(p => h('th', { style: `color:${p.color}` }, p.name))));
-    for (const r of snap.history) t.append(h('tr', {}, h('td', {}, r.round), snap.players.map(p => h('td', { class: r.winnerId === p.id ? 'w' : '' }, r.bids[p.id] ?? '–'))));
+    for (const r of snap.history) t.append(h('tr', {}, h('td', {}, r.round + (r.rerun ? ' ↻' : '')), snap.players.map(p => h('td', { class: r.winnerId === p.id ? 'w' : '' }, r.bids[p.id] ?? '–'))));
   }
 
   function renderOver(snap) {
@@ -394,6 +396,7 @@
     const url = `${location.origin}${location.pathname}?room=${S.code}`;
     try { await navigator.clipboard.writeText(url); toast('Invite link copied'); } catch (e) { prompt('Copy this invite link:', url); }
   };
+  $('#cfg-tie').addEventListener('change', () => { if (host) { host.config = readConfig(); hostBroadcast(); } });
   $('#cfg-hide').addEventListener('change', e => { if (host) { host.hideVolume = e.target.checked; hostBroadcast(); } });
   for (const k of ['V', 'X', 'Y']) $('#cfg-' + k).addEventListener('input', () => { if (host) { host.config = readConfig(); $('#cfg-err').textContent = ''; hostBroadcast(); } });
 

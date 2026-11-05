@@ -64,3 +64,18 @@ for (let g = 0; g < 500; g++) {
   }
 }
 console.log('engine tests passed');
+
+// tie rule: rerun replays the same round, bids still paid, zero-ties never rerun
+{
+  const cf = { V: 100, X: 3, Y: 2, tieRule: 'rerun' };
+  let r = E.createGame(P(2), cf);
+  r = E.resolveRound(r, { p0: 10, p1: 10 });
+  assert.strictEqual(r.round, 1); assert.ok(r.history[0].rerun && !r.over);
+  assert.deepStrictEqual(r.players.map(p => p.volume), [90, 90]);
+  r = E.resolveRound(r, { p0: 0, p1: 0 });
+  assert.strictEqual(r.round, 2); assert.ok(!r.history[1].rerun);
+  let d2 = E.createGame(P(2), { V: 10, X: 1, Y: 1, tieRule: 'none' });
+  d2 = E.resolveRound(d2, { p0: 5, p1: 5 });
+  assert.ok(d2.over && d2.draw);
+  console.log('tie rule tests passed');
+}

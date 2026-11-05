@@ -15,7 +15,7 @@
     const err = validateConfig(cfg, players.length);
     if (err) throw new Error(err);
     return {
-      config: { V: +cfg.V, X: +cfg.X, Y: +cfg.Y },
+      config: { V: +cfg.V, X: +cfg.X, Y: +cfg.Y, tieRule: cfg.tieRule === 'rerun' ? 'rerun' : 'none' },
       players: players.map(p => ({ id: p.id, name: p.name, volume: +cfg.V, wins: 0 })),
       round: 1,
       history: [],      // [{round, bids:{id:n}, winnerId|null, volumes:{id:n} (after)}]
@@ -54,10 +54,15 @@
     }
     const volumes = {}, wins = {};
     for (const p of s.players) { volumes[p.id] = p.volume; wins[p.id] = p.wins; }
-    s.history.push({ round: s.round, bids, winnerId, volumes, wins });
+    // Tie rule 'rerun': a tied top bid (above zero) replays the same round. Bids are still paid, so volume
+    // keeps draining and the stalemate always ends (all-zero bids are never a rerun).
+    const topBid = Math.max(0, ...Object.values(bids));
+    const rerun = s.config.tieRule === 'rerun' && winnerId === null && topBid > 0;
+    s.history.push({ round: s.round, bids, winnerId, volumes, wins, rerun });
 
     const champ = s.players.find(p => p.wins >= s.config.Y);
     if (champ) { s.over = true; s.winnerId = champ.id; }
+    else if (rerun) { /* same round number again */ }
     else if (s.round >= s.config.X) { s.over = true; s.draw = true; }
     else s.round += 1;
     return s;
