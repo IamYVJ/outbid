@@ -42,7 +42,7 @@
 
   /* ---------- HOST ---------- */
   function newHost() {
-    return { phase: 'lobby', config: { V: 100, X: 7, Y: 4 }, players: [], game: null, bids: {}, last: null, nextAt: 0, token: 0, seq: 0, nextTimer: null, conns: {} };
+    return { phase: 'lobby', hideVolume: false, config: { V: 100, X: 7, Y: 4 }, players: [], game: null, bids: {}, last: null, nextAt: 0, token: 0, seq: 0, nextTimer: null, conns: {} };
   }
   function freeColor() { return COLORS.find(c => !host.players.some(p => p.color === c)) || COLORS[0]; }
   function addPlayer(p) {
@@ -57,28 +57,30 @@
     addPlayer({ id: 'b' + (++host.seq), name, bot: true, style: BOT_STYLES[host.seq % 3] });
     hostBroadcast();
   }
-  function snapshot() {
+  /** Per-viewer snapshot. With hideVolume on, other players' remaining volume is withheld until the game ends. */
+  function snapshot(viewerId) {
     const g = host.game;
+    const hide = host.hideVolume && g && !g.over;
     return {
-      phase: host.phase, code: S.code, online: S.online,
+      phase: host.phase, code: S.code, online: S.online, hideVolume: host.hideVolume,
       config: g ? g.config : host.config,
       players: host.players.map(p => {
         const gp = g && g.players.find(x => x.id === p.id);
-        return { id: p.id, name: p.name, color: p.color, bot: p.bot, connected: p.connected, volume: gp ? gp.volume : host.config.V, wins: gp ? gp.wins : 0 };
+        const vol = gp ? gp.volume : host.config.V;
+        return { id: p.id, name: p.name, color: p.color, bot: p.bot, connected: p.connected, volume: hide && p.id !== viewerId ? null : vol, wins: gp ? gp.wins : 0 };
       }),
       round: g ? g.round : 0,
       locked: Object.keys(host.bids),
       last: host.last,
-      history: g ? g.history : [],
+      history: g ? g.history.map(({ round, bids, winnerId }) => ({ round, bids, winnerId })) : [],
       over: g ? g.over : false, winnerId: g ? g.winnerId : null, draw: g ? g.draw : false,
       analysis: g && g.over ? E.analyse(g) : null,
       nextIn: host.phase === 'reveal' ? Math.max(0, host.nextAt - Date.now()) : 0
     };
   }
   function hostBroadcast() {
-    const snap = snapshot();
-    for (const c of Object.values(host.conns)) if (c.open) c.send({ t: 'snap', snap });
-    applySnap(snap);
+    for (const c of Object.values(host.conns)) if (c.open) c.send({ t: 'snap', snap: snapshot(c._pid) });
+    applySnap(snapshot('h'));
   }
   function hostStart() {
     const cfg = readConfig();
@@ -254,7 +256,8 @@
     $('#guest-wait').classList.toggle('hidden', isHost());
     const c = snap.config;
     for (const k of ['V', 'X', 'Y']) { const el = $('#cfg-' + k); if (document.activeElement !== el && isHost()) el.value = c[k]; }
-    $('#cfg-summary').textContent = `${snap.players.length} players · ${c.V} volume each · ${c.X} max rounds · first to ${c.Y} wins`;
+    $('#cfg-summary').textContent = `${snap.players.length} players · ${c.V} volume each · ${c.X} max rounds · first to ${c.Y} wins` + (snap.hideVolume ? ' · opponents\' volume hidden' : '');
+    $('#cfg-hide').checked = !!snap.hideVolume;
   }
 
   function renderGame(snap) {
@@ -289,7 +292,7 @@
       const bidTxt = showLast ? fmt(bid) : lockedNow ? '✓' : '';
       seats.append(h('div', { class: 'seat' + (p.id === S.myId ? ' me' : '') + (isWin ? ' winner' : '') + (!p.connected ? ' out' : ''), style: `--pc:${p.color}` },
         h('div', { class: 'nm' }, p.name + (p.bot ? ' · bot' : '') + (p.id === S.myId ? ' (you)' : '')),
-        h('div', { class: 'vol' }, h('b', {}, fmt(p.volume)), ' vol'),
+        h('div', { class: 'vol' }, h('b', {}, p.volume == null ? '?' : fmt(p.volume)), ' vol'),
         h('div', { class: 'bidval' + (isWin ? ' win' : '') }, bidTxt),
         h('div', { class: 'wins', title: `${p.wins}/${cfg.Y} wins` }, pips),
         h('div', { class: 'status' }, status)));
@@ -391,6 +394,7 @@
     const url = `${location.origin}${location.pathname}?room=${S.code}`;
     try { await navigator.clipboard.writeText(url); toast('Invite link copied'); } catch (e) { prompt('Copy this invite link:', url); }
   };
+  $('#cfg-hide').addEventListener('change', e => { if (host) { host.hideVolume = e.target.checked; hostBroadcast(); } });
   for (const k of ['V', 'X', 'Y']) $('#cfg-' + k).addEventListener('input', () => { if (host) { host.config = readConfig(); $('#cfg-err').textContent = ''; hostBroadcast(); } });
 
   try { $('#in-name').value = localStorage.getItem('outbid-name') || ''; } catch (e) {}

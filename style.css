@@ -75,6 +75,9 @@ input::placeholder{color:#5b6a60}
 .host-only{display:flex;flex-direction:column;gap:14px}
 .cfg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .cfg-summary{font-family:var(--mono);font-size:12px;color:var(--muted);margin:0}
+.toggle{display:flex;align-items:flex-start;gap:12px;cursor:pointer;font-size:15px}
+.toggle input{width:20px;height:20px;padding:0;flex:none;margin:2px 0 0;accent-color:var(--accent)}
+.toggle small{display:block;color:var(--muted);font-size:13px}
 .dot{width:10px;height:10px;border-radius:50%;flex:none}
 
 /* game */
