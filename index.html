@@ -195,6 +195,10 @@
   </div>
 </div>
 
+<footer class="site-foot">
+  <p class="visitor-counter" hidden><span id="visitor-count" class="visitor-count">&mdash;</span> visitors</p>
+</footer>
+
 <div id="toast" class="toast hidden"></div>
 
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -206,5 +210,20 @@
      location.pathname so invite links (?room=CODE) don't create a separate entry per room. -->
 <script>window.goatcounter = { path: function () { return location.pathname; } };</script>
 <script data-goatcounter="https://yvj.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+<script>
+(function () {
+  // Visitor counter: per-path (NOT /counter/TOTAL.json, which sums every project).
+  // Fixed ?start= date predating the first pageview gives an all-time count.
+  var box = document.querySelector('.visitor-counter');
+  var out = document.getElementById('visitor-count');
+  var tag = document.querySelector('script[data-goatcounter]');
+  var endpoint = tag && tag.dataset.goatcounter;
+  if (!box || !out || !endpoint) return;
+  fetch(endpoint.replace(/\/count$/, '') + '/counter/' + encodeURIComponent(location.pathname) + '.json?start=2026-01-01')
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('bad status')); })
+    .then(function (d) { if (d && d.count != null) { out.textContent = String(d.count); box.hidden = false; } })
+    .catch(function () { /* decorative: stay hidden on any failure */ });
+})();
+</script>
 </body>
 </html>
