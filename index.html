@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OUTBID — A Game of Strategy, Scarcity &amp; Game Theory</title>
+<meta name="description" content="OUTBID: a peer-to-peer simultaneous bidding game. Win the rounds, manage your reserves, outthink your opponents.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="brand-chip">$</span><span class="brand-name">OUTBID</span></div>
+  <nav>
+    <button class="link-btn" data-modal="rules">Rules</button>
+    <button class="link-btn" data-modal="science">The Science</button>
+    <button class="link-btn hidden" id="btn-leave">Leave</button>
+  </nav>
+</header>
+
+<main id="app">
+  <!-- HOME -->
+  <section id="screen-home" class="screen">
+    <div class="hero">
+      <h1>OUTBID</h1>
+      <p class="tag">Every bid has a cost. Every round has a consequence.<br>Every decision shapes the outcome.</p>
+      <div class="panel home-panel">
+        <label class="field"><span>Your name</span>
+          <input id="in-name" maxlength="14" placeholder="e.g. Ada" autocomplete="off">
+        </label>
+        <div class="home-actions">
+          <button class="btn primary" id="btn-create">Create online room</button>
+          <div class="or">or join a friend</div>
+          <div class="join-row">
+            <input id="in-code" maxlength="5" placeholder="CODE" autocomplete="off" spellcheck="false">
+            <button class="btn" id="btn-join">Join</button>
+          </div>
+          <button class="btn ghost" id="btn-solo">Practice vs bots (offline)</button>
+        </div>
+        <p class="fineprint">Peer-to-peer: players connect directly in the browser (WebRTC). No account, no server to host.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- LOBBY -->
+  <section id="screen-lobby" class="screen hidden">
+    <div class="panel lobby">
+      <div class="room-head">
+        <div>
+          <div class="eyebrow">Room code</div>
+          <div class="room-code" id="room-code">-----</div>
+        </div>
+        <button class="btn" id="btn-copy">Copy invite link</button>
+      </div>
+      <h3>Players <small id="pl-count"></small></h3>
+      <ul id="lobby-players" class="plist"></ul>
+      <div class="host-only" id="host-controls">
+        <div class="cfg-grid">
+          <label class="field"><span>Starting volume (V)</span><input type="number" id="cfg-V" min="1" max="10000" value="100"></label>
+          <label class="field"><span>Maximum rounds (X)</span><input type="number" id="cfg-X" min="1" max="50" value="7"></label>
+          <label class="field"><span>Target wins (Y)</span><input type="number" id="cfg-Y" min="1" max="50" value="4"></label>
+        </div>
+        <div class="row">
+          <button class="btn" id="btn-addbot">+ Add bot</button>
+          <button class="btn primary" id="btn-start">Deal in — start game</button>
+        </div>
+        <p class="err" id="cfg-err"></p>
+      </div>
+      <p id="guest-wait" class="muted hidden">Waiting for the host to start the game…</p>
+      <p class="cfg-summary" id="cfg-summary"></p>
+    </div>
+  </section>
+
+  <!-- GAME -->
+  <section id="screen-game" class="screen hidden">
+    <div class="track-wrap">
+      <div class="track" id="track"></div>
+      <div class="goal" id="goal"></div>
+    </div>
+
+    <div class="table-rim">
+      <div class="felt">
+        <div class="seats" id="seats"></div>
+        <div class="center" id="center"></div>
+      </div>
+    </div>
+
+    <div class="bidpanel panel hidden" id="bidpanel"></div>
+
+    <details class="panel logbox" id="logbox">
+      <summary>Round log (every bid is revealed after each round)</summary>
+      <div class="log-scroll"><table id="log"></table></div>
+    </details>
+  </section>
+</main>
+
+<!-- GAME OVER -->
+<div class="modal hidden" id="modal-over">
+  <div class="modal-card wide">
+    <h2 id="over-title"></h2>
+    <p class="muted" id="over-sub"></p>
+    <div class="log-scroll"><table id="over-table"></table></div>
+    <p class="insight" id="over-insight"></p>
+    <h3>Post-game reflection</h3>
+    <ol class="reflect">
+      <li><b>Would a different bidding strategy have improved your outcome?</b> Find a round where a lower or higher bid might have been better.</li>
+      <li><b>When did conserving volume become more valuable than winning a round?</b> Explain using remaining volume and wins required.</li>
+      <li><b>How did opponents' previous bids influence you?</b> Separate evidence-based predictions from assumptions and emotional reactions.</li>
+    </ol>
+    <div class="row end">
+      <button class="btn" data-modal="science">The science</button>
+      <button class="btn primary hidden" id="btn-rematch">Play again (same room)</button>
+      <button class="btn" id="btn-over-leave">Leave</button>
+    </div>
+  </div>
+</div>
+
+<!-- RULES -->
+<div class="modal hidden" id="modal-rules">
+  <div class="modal-card">
+    <button class="x" data-close>&times;</button>
+    <h2>OUTBID — Rules</h2>
+    <p class="muted">Players: 2 or more · Strategy · Resource management · Simultaneous bidding</p>
+    <h3>Objective</h3>
+    <p>Be the first player to win <b>Y</b> rounds within a maximum of <b>X</b> rounds, while managing your limited volume. The highest bidder wins each round, but <b>every player loses the volume they bid</b>, win or lose.</p>
+    <h3>Setup</h3>
+    <ul>
+      <li><b>Starting Volume (V)</b> — given equally to each player.</li>
+      <li><b>Maximum Rounds (X)</b> — the game's round limit.</li>
+      <li><b>Target Wins (Y)</b> — between 1 and X.</li>
+    </ul>
+    <h3>Each round</h3>
+    <ol>
+      <li><b>Choose</b> — everyone secretly picks a whole-number bid, 0 up to their remaining volume.</li>
+      <li><b>Reveal</b> — all bids are shown at once.</li>
+      <li><b>Winner</b> — the highest bid above zero wins. If two or more players tie for the highest bid, nobody wins. Zero never wins.</li>
+      <li><b>Deduct</b> — every player loses exactly what they bid.</li>
+      <li><b>Continue</b> — until someone has Y wins or X rounds have been played.</li>
+    </ol>
+    <h3>Winning</h3>
+    <p>The first player with Y round wins takes the game immediately. If X rounds pass and nobody reached Y, the match is a draw.</p>
+    <h3>Core principle</h3>
+    <p><i>Winning a round is not always the best move. In OUTBID, winning the battle can cost you the war.</i></p>
+  </div>
+</div>
+
+<!-- SCIENCE -->
+<div class="modal hidden" id="modal-science">
+  <div class="modal-card">
+    <button class="x" data-close>&times;</button>
+    <h2>The Science Behind the Strategy</h2>
+    <p class="muted">A game of strategic decisions, finite resources, and competitive intelligence.</p>
+    <p>OUTBID is best described as a finite-horizon, budget-constrained, repeated <b>all-pay auction</b>: everyone pays their bid whether or not they win.</p>
+    <h3>Game theory</h3>
+    <ul>
+      <li><b>All-pay auctions</b> — every player sacrifices their bid, even when they lose.</li>
+      <li><b>Nash equilibrium &amp; mixed strategies</b> — if you always bid the same way, opponents can exploit you. Randomising makes you harder to predict.</li>
+      <li><b>Strategic interdependence</b> — a bid is only good or bad relative to what others bid.</li>
+      <li><b>Backward induction</b> — reason from the last round backwards.</li>
+    </ul>
+    <h3>Economics</h3>
+    <ul>
+      <li><b>Scarcity &amp; budget constraints</b> — volume is finite.</li>
+      <li><b>Opportunity cost</b> — volume spent today can't be spent later.</li>
+      <li><b>Marginal analysis</b> — is one extra unit worth the edge it buys?</li>
+    </ul>
+    <h3>Behavioural economics</h3>
+    <ul>
+      <li><b>Sunk cost</b> — don't bid more just to justify earlier bids.</li>
+      <li><b>Loss aversion &amp; overbidding</b> — fear of losing can push spending beyond what is strategically justified.</li>
+      <li><b>Regret &amp; learning</b> — compare what you did with what you could have done, and adapt to revealed behaviour.</li>
+    </ul>
+    <h3>Related model: Colonel Blotto</h3>
+    <p>Blotto players split resources across battlefields at once. OUTBID makes the allocation round by round, so you can react to outcomes: related, but not identical.</p>
+    <h3>Worked example</h3>
+    <p>Two players, 100 volume each, 3 rounds, 2 wins needed. A bids 70 and beats B's 20 — but A has 30 left. B (80 left) can bid 31 in both remaining rounds and take the game. <b>Tactical success is not strategic success.</b></p>
+    <h3>Learning objectives</h3>
+    <ol>
+      <li>Strategic interdependence</li><li>Resource optimisation</li><li>Opportunity cost</li>
+      <li>Strategic uncertainty</li><li>Recognising behavioural biases</li><li>Planning across rounds</li>
+    </ol>
+    <h3>References</h3>
+    <ul class="refs">
+      <li>Pastine &amp; Pastine — <a target="_blank" rel="noopener" href="https://doi.org/10.1007/s00199-022-01433-5">Equilibrium Existence and Expected Payoffs in All-Pay Auctions with Constraints</a></li>
+      <li>Balseiro et al. — <a target="_blank" rel="noopener" href="https://doi.org/10.1287/opre.2020.2073">Budget-Management Strategies in Repeated Auctions</a></li>
+      <li>Chowdhury, Kovenock &amp; Sheremeta — <a target="_blank" rel="noopener" href="https://doi.org/10.1007/s00199-011-0670-2">An Experimental Investigation of Colonel Blotto Games</a></li>
+      <li><a target="_blank" rel="noopener" href="https://ocw.mit.edu/courses/15-040-game-theory-for-managers-spring-2004/pages/lecture-notes/">MIT OpenCourseWare — Game Theory for Managers</a></li>
+      <li><a target="_blank" rel="noopener" href="https://openstax.org/books/principles-economics-3e/pages/2-key-concepts-and-summary">OpenStax — Principles of Economics: Scarcity and Opportunity Cost</a></li>
+    </ul>
+    <p class="fineprint">Educational note: these theories are the conceptual foundation for OUTBID. The game can illustrate them, but its effectiveness as a learning intervention has not been experimentally validated.</p>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
