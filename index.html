@@ -200,5 +200,11 @@
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="engine.js"></script>
 <script src="app.js"></script>
+
+<!-- GoatCounter pageview beacon. Shared GoatCounter site across projects on purpose: counts are
+     per-path, so each project separates itself via its own pathname. The path is pinned to
+     location.pathname so invite links (?room=CODE) don't create a separate entry per room. -->
+<script>window.goatcounter = { path: function () { return location.pathname; } };</script>
+<script data-goatcounter="https://yvj.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
